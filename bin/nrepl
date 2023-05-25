@@ -1,2 +1,12 @@
 #!/bin/sh
-exec clj -Sdeps '{:deps {cider/cider-nrepl {:mvn/version "0.30.0" #_"0.25.2"}}}' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"
+: ${NREPL_PORT:=53535}
+
+if [ -e .nrepl-port ] ; then
+  echo "Stale `.nrepl-port` file found; `rm .nrepl-port` and try again."
+  exit 1
+fi
+
+clj -Sdeps '{:deps {cider/cider-nrepl {:mvn/version "0.30.0" #_"0.25.2"}}}' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]" --port "${NREPL_PORT}"
+
+trap "rm -f .nrepl-port" EXIT
+echo -n "${NREPL_PORT}" > .nrepl-port
