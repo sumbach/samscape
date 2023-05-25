@@ -1,0 +1,2 @@
+#!/bin/sh
+exec clj-kondo --lint .clj-kondo/config.edn:deps.edn:src:test
