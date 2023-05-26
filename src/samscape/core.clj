@@ -52,5 +52,8 @@
                   r (io/reader i)]
         (let [status-line (.readLine r)
               [version status explanation] (string/split status-line #" " 3)
-              headers (read-headers r)]
-          [[version status explanation] headers])))))
+              _ (assert (= "200" status) status-line)
+              headers (read-headers r)
+              _ (assert (not-any? (fn [[k _]] (#{"transfer-encoding" "content-encoding"} (string/lower-case k))) headers) (pr-str headers))
+              body (slurp r)]
+          [[version status explanation] headers body])))))

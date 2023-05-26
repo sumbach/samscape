@@ -25,10 +25,10 @@
             (with-open [i (sut/is socket)
                         o (sut/os socket)]
               (is (= "GET /foo/bar HTTP/1.0\r\nHost: example.com\r\n\r\n" (slurp (io/reader i))))
-              (.write o (.getBytes "HTTP/1.0 200 OK\r\nfoo:bar\r\nbaz:  z  \r\n\r\n" "UTF-8")))
+              (.write o (.getBytes "HTTP/1.0 200 OK\r\nfoo:bar\r\nbaz:  z  \r\n\r\nhello\n" "UTF-8")))
             (let [res (deref f-client 500 ::TIMEOUT)]
               (is (not= ::TIMEOUT res))
-              (is (= [["HTTP/1.0" "200" "OK"] [["foo" "bar"] ["baz" "z"]]] res))))
+              (is (= [["HTTP/1.0" "200" "OK"] [["foo" "bar"] ["baz" "z"]] "hello\n"] res))))
           (finally
             (some-> f-socket (deref 0 nil) .close)))))
     (with-open [server-socket (ServerSocket. 22222)]
@@ -52,4 +52,4 @@
                ["Vary" "Accept-Encoding"]
                ["X-Cache" "HIT"]
                ["Content-Length" "1256"]]]
-             (sut/request "http://example.org/index.html"))))))
+             (butlast (sut/request "http://example.org/index.html")))))))
