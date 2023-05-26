@@ -30,4 +30,26 @@
               (is (not= ::TIMEOUT res))
               (is (= [["HTTP/1.0" "200" "OK"] [["foo" "bar"] ["baz" "z"]]] res))))
           (finally
-            (some-> f-socket (deref 0 nil) .close)))))))
+            (some-> f-socket (deref 0 nil) .close)))))
+    (with-open [server-socket (ServerSocket. 22222)]
+      (future
+        (loop []
+          (when-let [socket (.accept server-socket)]
+            (with-open [i (sut/is socket)
+                        o (sut/os socket)]
+              (slurp i) ;; silently discard request
+              (io/copy (-> "fixtures/http://example.org/index.html" io/resource io/input-stream) o))
+            (recur))))
+      (is (= [["HTTP/1.1" "200" "OK"]
+              [["Age" "482475"]
+               ["Cache-Control" "max-age=604800"]
+               ["Content-Type" "text/html; charset=UTF-8"]
+               ["Date" "Fri, 26 May 2023 15:12:58 GMT"]
+               ["Etag" "\"3147526947+ident\""]
+               ["Expires" "Fri, 02 Jun 2023 15:12:58 GMT"]
+               ["Last-Modified" "Thu, 17 Oct 2019 07:18:26 GMT"]
+               ["Server" "ECS (phd/FD6F)"]
+               ["Vary" "Accept-Encoding"]
+               ["X-Cache" "HIT"]
+               ["Content-Length" "1256"]]]
+             (sut/request "http://example.org/index.html"))))))
