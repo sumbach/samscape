@@ -35,7 +35,7 @@
 (defn is [socket]
   (proxy [FilterInputStream] [(.getInputStream socket)]
     (close []
-      #_(.shutdownInput socket))))
+      #_(.shutdownInput socket)))) ;; TODO: do we need to catch and ignore when other side has already shutdown output?
 
 (defn request [s]
   (let [url (parse s)
