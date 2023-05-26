@@ -37,11 +37,12 @@
     (close []
       #_(.shutdownInput socket)))) ;; TODO: do we need to catch and ignore when other side has already shutdown output?
 
+(defn resolve-host-port [url]
+  (merge {:port 80} url))
+
 (defn request [s]
   (let [url (parse s)
-        host (:host url)
-        port 80
-        [host port] ["localhost" 22222] ;; TODO
+        {:keys [host port]} (resolve-host-port url)
         payload (request-payload url)]
     (with-open [socket (Socket. host port)]
       (with-open [o (os socket)]
