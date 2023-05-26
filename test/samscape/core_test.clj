@@ -7,15 +7,18 @@
 (deftest parse-test
   (is (thrown? java.lang.AssertionError (sut/parse "foo")))
   (is (thrown? java.lang.AssertionError (sut/parse "http:")))
+  (is (thrown? java.lang.AssertionError (sut/parse "https:")))
   (is (thrown? java.lang.AssertionError (sut/parse "http:/")))
-  (is (= {:host ""            :path "/"} (sut/parse "http://")))
-  (is (= {:host "example.com" :path "/"} (sut/parse "http://example.com")))
-  (is (= {:host "example.com" :path "/"} (sut/parse "http://example.com/")))
-  (is (= {:host "example.com" :path "/foo/bar"} (sut/parse "http://example.com/foo/bar")))
-  (is (= {:host "example.com" :path "/foo/bar/"} (sut/parse "http://example.com/foo/bar/"))))
+  (is (thrown? java.lang.AssertionError (sut/parse "https:/")))
+  (is (= {:scheme "http" :host ""            :path "/"} (sut/parse "http://")))
+  (is (= {:scheme "http" :host "example.com" :path "/"} (sut/parse "http://example.com")))
+  (is (= {:scheme "http" :host "example.com" :path "/"} (sut/parse "http://example.com/")))
+  (is (= {:scheme "http" :host "example.com" :path "/foo/bar"} (sut/parse "http://example.com/foo/bar")))
+  (is (= {:scheme "http" :host "example.com" :path "/foo/bar/"} (sut/parse "http://example.com/foo/bar/")))
+  (is (= {:scheme "https" :host "example.com" :path "/foo/bar/"} (sut/parse "https://example.com/foo/bar/"))))
 
 (deftest request-test
-  (with-redefs [sut/resolve-host-port (constantly {:host "localhost" :port 22222})]
+  (with-redefs [sut/resolve-host-port (fn [url] (merge url {:host "localhost" :port 22222}))]
     (with-open [server-socket (ServerSocket. 22222)]
       (let [f-socket (future (.accept server-socket))
             f-client (future (sut/request "http://example.com/foo/bar"))]

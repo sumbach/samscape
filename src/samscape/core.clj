@@ -1,15 +1,16 @@
 (ns samscape.core
   (:require [clojure.java.io :as io]
             [clojure.string :as string])
-  (:import (java.net Socket)
-           (java.io FilterInputStream FilterOutputStream)))
+  (:import (java.net Socket InetSocketAddress)
+           (java.io FilterInputStream FilterOutputStream)
+           (javax.net.ssl SSLSocketFactory)))
 
 (defn parse [s]
-  (assert (string/starts-with? s "http://"))
-  (let [x (subs s (.length "http://"))
-        [host path] (string/split x #"/" 2)
+  (let [[scheme rst] (string/split s #"://" 2)
+        _ (assert (#{"http" "https"} scheme) (format "Unknown scheme %s" (pr-str scheme)))
+        [host path] (string/split rst #"/" 2)
         path (str "/" path)]
-    {:host host :path path}))
+    {:scheme scheme :host host :path path}))
 
 (defn request-payload [url]
   (format (str "GET %s HTTP/1.0\r\n"
@@ -38,13 +39,26 @@
       #_(.shutdownInput socket)))) ;; TODO: do we need to catch and ignore when other side has already shutdown output?
 
 (defn resolve-host-port [url]
-  (merge {:port 80} url))
+  (merge
+   (cond
+     (= "http"  (:scheme url)) {:port 80}
+     (= "https" (:scheme url)) {:port 443})
+   url))
+
+(defn socket-for [{:keys [scheme host port]}]
+  (case scheme
+    "http"
+    (doto (Socket.)
+      (.connect (InetSocketAddress. host port) 5000))
+
+    "https"
+    (doto (-> (SSLSocketFactory/getDefault) (.createSocket))
+      (.connect (InetSocketAddress. host port) 5000))))
 
 (defn request [s]
   (let [url (parse s)
-        {:keys [host port]} (resolve-host-port url)
         payload (request-payload url)]
-    (with-open [socket (Socket. host port)]
+    (with-open [socket (socket-for (resolve-host-port url))]
       (with-open [o (os socket)]
         (.write o (.getBytes payload "UTF-8"))
         (.flush o)) ;; TODO: is this necessary?
