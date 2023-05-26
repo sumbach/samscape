@@ -15,17 +15,18 @@
   (is (= {:host "example.com" :path "/foo/bar/"} (sut/parse "http://example.com/foo/bar/"))))
 
 (deftest request-test
-  (with-open [socket (ServerSocket. 22222)]
-    (let [f-server (future (.accept socket))
+  (with-open [server-socket (ServerSocket. 22222)]
+    (let [f-client-socket (future (.accept server-socket))
           f-client (future (sut/request "http://example.com/foo/bar"))]
       (try
-        (is (not= ::TIMEOUT (deref f-server 500 ::TIMEOUT)))
-        (with-open [i (sut/is @f-server)
-                    o (sut/os @f-server)]
-          (is (= "GET /foo/bar HTTP/1.0\r\nHost: example.com\r\n\r\n" (slurp (io/reader i))))
-          (.write o (.getBytes "HTTP/1.0 200 OK\r\nfoo:bar\r\nbaz:  z  \r\n\r\n" "UTF-8")))
-        (is (not= ::TIMEOUT (deref f-client 500 ::TIMEOUT)))
-        (is (= [["HTTP/1.0" "200" "OK"] [["foo" "bar"] ["baz" "z"]]] @f-client))
+        (with-open [client-socket (deref f-client-socket 500 ::TIMEOUT)]
+          (is (not= ::TIMEOUT client-socket))
+          (with-open [i (sut/is client-socket)
+                      o (sut/os client-socket)]
+            (is (= "GET /foo/bar HTTP/1.0\r\nHost: example.com\r\n\r\n" (slurp (io/reader i))))
+            (.write o (.getBytes "HTTP/1.0 200 OK\r\nfoo:bar\r\nbaz:  z  \r\n\r\n" "UTF-8")))
+          (let [res (deref f-client 500 ::TIMEOUT)]
+            (is (not= ::TIMEOUT res))
+            (is (= [["HTTP/1.0" "200" "OK"] [["foo" "bar"] ["baz" "z"]]] res))))
         (finally
-          (try (some-> f-client deref .close) (catch Exception _)) ;; TODO: more specific catch?
-          (some-> f-server deref .close))))))
+          (some-> f-client-socket (deref 0 nil) .close))))))
