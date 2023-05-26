@@ -1,8 +1,8 @@
 (ns samscape.core
   (:require [clojure.java.io :as io]
             [clojure.string :as string])
-  (:import (java.net Socket InetSocketAddress)
-           (java.io FilterInputStream FilterOutputStream)
+  (:import (java.io FilterInputStream FilterOutputStream)
+           (java.net Socket InetSocketAddress)
            (javax.net.ssl SSLSocketFactory)))
 
 (defn parse [s]
