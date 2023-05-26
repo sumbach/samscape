@@ -57,3 +57,24 @@
               _ (assert (not-any? (fn [[k _]] (#{"transfer-encoding" "content-encoding"} (string/lower-case k))) headers) (pr-str headers))
               body (slurp r)]
           [[version status explanation] headers body])))))
+
+(defn show [body]
+  (loop [body (seq body)
+         in-angle false]
+    (when-let [c (first body)]
+      (cond
+        (= \< c)
+        (recur (rest body) true)
+
+        (= \> c)
+        (recur (rest body) false)
+
+        :else
+        (do
+          (when (not in-angle)
+            (print c))
+          (recur (rest body) in-angle))))))
+
+(defn load-page [s]
+  (let [[_ _headers body] (request s)]
+    (show body)))

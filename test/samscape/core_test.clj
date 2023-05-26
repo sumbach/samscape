@@ -52,4 +52,6 @@
                ["Vary" "Accept-Encoding"]
                ["X-Cache" "HIT"]
                ["Content-Length" "1256"]]]
-             (butlast (sut/request "http://example.org/index.html")))))))
+             (butlast (sut/request "http://example.org/index.html"))))
+      (is (re-find #"(?m)^ *Example Domain *$"
+                   (with-out-str (sut/load-page "http://example.org/index.html")))))))
