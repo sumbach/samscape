@@ -118,8 +118,14 @@
 (defn layout [width text]
   (->> (seq text)
        (reduce (fn [{:keys [display-list x y]} c] ;; TODO: change this to use `update` on a state map
-                 (if (>= x (- width hstep hstep))
+                 (cond
+                   (= \newline c)
+                   {:display-list display-list :x hstep :y (+ y vstep vstep)}
+
+                   (>= x (- width hstep hstep))
                    {:display-list (conj display-list [x y c]) :x hstep       :y (+ y vstep)}
+
+                   :else
                    {:display-list (conj display-list [x y c]) :x (+ x hstep) :y y}))
                {:display-list [] :x hstep :y vstep})
        :display-list))
