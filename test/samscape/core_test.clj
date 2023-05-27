@@ -58,3 +58,19 @@
              (butlast (sut/request "http://example.org/index.html"))))
       (is (re-find #"(?m)^ *Example Domain *$"
                    (with-out-str (sut/load-page "http://example.org/index.html")))))))
+
+(comment
+  (with-redefs [sut/resolve-host-port (fn [url] (merge url {:scheme "http" :host "localhost" :port 22222}))]
+    (with-open [server-socket (ServerSocket. 22222)]
+      (future
+        (loop []
+          (when-let [socket (.accept server-socket)]
+            (with-open [i (sut/is socket)
+                        o (sut/os socket)]
+              (slurp i) ;; silently discard request
+              #_(io/copy (-> "fixtures/http://example.org/index.html" io/resource io/input-stream) o)
+              (io/copy (-> "fixtures/https://browser.engineering/examples/xiyouji.html" io/resource io/input-stream) o))
+            (recur))))
+      #_(sut/load-page-gui "http://example.org/index.html")
+      (sut/load-page-gui "https://browser.engineering/examples/xiyouji.html")))
+  )
