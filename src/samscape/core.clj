@@ -131,7 +131,7 @@
        :display-list))
 
 (defn canvas [{:keys [width height scroll display-list]}]
-  (let [progress 0.8]
+  (let [#_{:clj-kondo/ignore [:unused-binding]} progress 0.8]
     {:fx/type :canvas
      :width 800
      :height 600
