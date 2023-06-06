@@ -3,5 +3,6 @@
  :paths ["src" "dev-resources"]
 
  :aliases
- {:test {:extra-deps {lambdaisland/kaocha {:mvn/version "1.84.1335"}}
-         :main-opts ["-m" "kaocha.runner"]}}}
+ {:test
+  {:extra-deps {lambdaisland/kaocha {:mvn/version "1.84.1335"}}
+   :main-opts ["-m" "kaocha.runner"]}}}
