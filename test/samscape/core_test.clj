@@ -17,6 +17,13 @@
   (is (= {:scheme "http" :host "example.com" :path "/foo/bar/"} (sut/parse "http://example.com/foo/bar/")))
   (is (= {:scheme "https" :host "example.com" :path "/foo/bar/"} (sut/parse "https://example.com/foo/bar/"))))
 
+(defn read-request [buffered-reader]
+  (loop [lines []]
+    (let [line (.readLine buffered-reader)]
+      (if (not= "" line)
+        (recur (conj lines line))
+        lines))))
+
 (deftest request-test
   (with-redefs [sut/resolve-host-port (fn [url] (merge url {:host "localhost" :port 22222}))]
     (with-open [server-socket (ServerSocket. 22222)]
@@ -27,7 +34,7 @@
             (is (not= ::TIMEOUT socket))
             (with-open [i (sut/is socket)
                         o (sut/os socket)]
-              (is (= "GET /foo/bar HTTP/1.0\r\nHost: example.com\r\n\r\n" (slurp (io/reader i))))
+              (is (= ["GET /foo/bar HTTP/1.0" "Host: example.com"] (read-request (io/reader i))))
               (.write o (.getBytes "HTTP/1.0 200 OK\r\nfoo:bar\r\nbaz:  z  \r\n\r\nhello\n" "UTF-8")))
             (let [res (deref f-client 500 ::TIMEOUT)]
               (is (not= ::TIMEOUT res))
@@ -40,7 +47,7 @@
           (when-let [socket (.accept server-socket)]
             (with-open [i (sut/is socket)
                         o (sut/os socket)]
-              (slurp i) ;; silently discard request
+              (read-request (io/reader i)) ;; silently discard request
               (io/copy (-> "fixtures/http://example.org/index.html" io/resource io/input-stream) o))
             (recur))))
       (is (= [["HTTP/1.1" "200" "OK"]
