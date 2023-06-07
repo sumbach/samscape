@@ -1,7 +1,7 @@
 (ns samscape.core-test
   (:require [clojure.java.io :as io]
             [clojure.test :refer [deftest is]]
-            [samscape.core :as sut])
+            [samscape.core :as sut :refer [try-with-resources]])
   (:import (java.net ServerSocket)))
 
 (deftest parse-test
@@ -26,14 +26,14 @@
 
 (deftest request-test
   (with-redefs [sut/resolve-host-port (fn [url] (merge url {:host "localhost" :port 22222}))]
-    (with-open [server-socket (ServerSocket. 22222)]
+    (try-with-resources [server-socket (ServerSocket. 22222)]
       (let [f-socket (future (.accept server-socket))
             f-client (future (sut/request "http://example.com/foo/bar"))]
         (try
-          (with-open [socket (deref f-socket 500 ::TIMEOUT)]
+          (try-with-resources [socket (deref f-socket 500 ::TIMEOUT)]
             (is (not= ::TIMEOUT socket))
-            (with-open [i (sut/is socket)
-                        o (sut/os socket)]
+            (try-with-resources [i (sut/is socket)
+                                 o (sut/os socket)]
               (is (= ["GET /foo/bar HTTP/1.0" "Host: example.com"] (read-request (io/reader i))))
               (.write o (.getBytes "HTTP/1.0 200 OK\r\nfoo:bar\r\nbaz:  z  \r\n\r\nhello\n" "UTF-8")))
             (let [res (deref f-client 500 ::TIMEOUT)]
@@ -41,12 +41,12 @@
               (is (= [["HTTP/1.0" "200" "OK"] [["foo" "bar"] ["baz" "z"]] "hello\n"] res))))
           (finally
             (some-> f-socket (deref 0 nil) .close)))))
-    (with-open [server-socket (ServerSocket. 22222)]
+    (try-with-resources [server-socket (ServerSocket. 22222)]
       (future
         (loop []
           (when-let [socket (.accept server-socket)]
-            (with-open [i (sut/is socket)
-                        o (sut/os socket)]
+            (try-with-resources [i (sut/is socket)
+                                 o (sut/os socket)]
               (read-request (io/reader i)) ;; silently discard request
               (io/copy (-> "fixtures/http://example.org/index.html" io/resource io/input-stream) o))
             (recur))))
@@ -68,12 +68,12 @@
 
 (comment
   (with-redefs [sut/resolve-host-port (fn [url] (merge url {:scheme "http" :host "localhost" :port 22222}))]
-    (with-open [server-socket (ServerSocket. 22222)]
+    (try-with-resources [server-socket (ServerSocket. 22222)]
       (future
         (loop []
           (when-let [socket (.accept server-socket)]
-            (with-open [i (sut/is socket)
-                        o (sut/os socket)]
+            (try-with-resources [i (sut/is socket)
+                                 o (sut/os socket)]
               (slurp i) ;; silently discard request
               #_(io/copy (-> "fixtures/http://example.org/index.html" io/resource io/input-stream) o)
               (io/copy (-> "fixtures/https://browser.engineering/examples/xiyouji.html" io/resource io/input-stream) o))

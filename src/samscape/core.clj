@@ -59,15 +59,33 @@
     (doto (-> (SSLSocketFactory/getDefault) (.createSocket))
       (.connect (InetSocketAddress. host port) 5000))))
 
+(defmacro try-with-resources [bindings & body]
+  (if (= 0 (count bindings))
+    `(do ~@body)
+    `(let ~(subvec bindings 0 2)
+       (let [[v# e#] (try
+                       [(try-with-resources ~(subvec bindings 2) ~@body) nil]
+                       (catch java.lang.Throwable e#
+                         [nil e#]))
+             [~'_ e2#] (try
+                         [(. ^java.lang.AutoCloseable ~(bindings 0) close) nil]
+                         (catch java.lang.Throwable e#
+                           [nil e#]))]
+         (when (and e# e2#)
+           (.addSuppressed e# e2#))
+         (if-let [e# (or e# e2#)]
+           (throw e#)
+           v#)))))
+
 (defn request [s]
   (let [url (parse s)
         payload (request-payload url)]
     (with-open [socket (socket-for (resolve-host-port url))]
-      (with-open [o (os socket)]
+      (try-with-resources [o (os socket)]
         (.write o (.getBytes payload "UTF-8"))
         (.flush o)) ;; TODO: is this necessary?
-      (with-open [i (is socket)
-                  r (io/reader i)]
+      (try-with-resources [i (is socket)
+                           r (io/reader i)]
         (let [status-line (.readLine r)
               [version status explanation] (string/split status-line #" " 3)
               _ (assert (= "200" status) status-line)

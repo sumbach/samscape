@@ -1,2 +1,3 @@
 {:linters {:unsorted-required-namespaces {:level :warning}}
+ :lint-as {samscape.core/try-with-resources clojure.core/with-open}
  :output {:progress true}}
