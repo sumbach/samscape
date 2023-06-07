@@ -49,6 +49,31 @@
      (= "https" (:scheme url)) {:port 443})
    url))
 
+(defn keystore [opts]
+  ;; TODO: consider supporting filename _or_ resource path/URL
+  (doto (java.security.KeyStore/getInstance (:type opts))
+    (.load (io/input-stream (:filename opts)) (.toCharArray (:passphrase opts))))) ;; NOTE: passphrase is optional here; used only for integrity checking
+
+(defn key-manager-factory [opts]
+  (let [algorithm (get opts :alg "SunX509") #_(javax.net.ssl.KeyManagerFactory/getDefaultAlgorithm)] ;; TODO: is this a reasonable algorithm?
+    (doto (javax.net.ssl.KeyManagerFactory/getInstance algorithm)
+      (.init (keystore opts) (.toCharArray (:passphrase opts))))))
+
+(defn trust-manager-factory [opts]
+  (let [algorithm (get opts :alg "PKIX") #_(javax.net.ssl.TrustManagerFactory/getDefaultAlgorithm)] ;; TODO: is this a reasonable algorithm?
+    (doto (javax.net.ssl.TrustManagerFactory/getInstance algorithm)
+      (.init (keystore opts)))))
+
+(defn ssl-context [opts]
+  (let [protocol (get opts :proto "TLSv1.2") #_(.getProtocol (javax.net.ssl.SSLContext/getDefault)) ;; TODO: is this a reasonable protocol?
+        key-managers (some-> (:keystore opts) (key-manager-factory) (.getKeyManagers))
+        trust-managers (some-> (:truststore opts) (trust-manager-factory) (.getTrustManagers))]
+    (doto (javax.net.ssl.SSLContext/getInstance protocol)
+      (.init key-managers trust-managers nil))))
+
+(defn ssl-socket-factory []
+  (.getSocketFactory (ssl-context {})))
+
 (defn socket-for [{:keys [scheme host port]}]
   (case scheme
     "http"
@@ -56,7 +81,7 @@
       (.connect (InetSocketAddress. host port) 5000))
 
     "https"
-    (doto (-> (SSLSocketFactory/getDefault) (.createSocket))
+    (doto (-> (ssl-socket-factory) (.createSocket))
       (.connect (InetSocketAddress. host port) 5000))))
 
 (defmacro try-with-resources [bindings & body]

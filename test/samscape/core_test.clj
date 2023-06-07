@@ -51,20 +51,53 @@
               (io/copy (-> "fixtures/http://example.org/index.html" io/resource io/input-stream) o))
             (recur))))
       (is (= [["HTTP/1.1" "200" "OK"]
-              [["Age" "482475"]
+              [["Accept-Ranges" "bytes"]
+               ["Age" "319376"]
                ["Cache-Control" "max-age=604800"]
                ["Content-Type" "text/html; charset=UTF-8"]
-               ["Date" "Fri, 26 May 2023 15:12:58 GMT"]
-               ["Etag" "\"3147526947+ident\""]
-               ["Expires" "Fri, 02 Jun 2023 15:12:58 GMT"]
+               ["Date" "Wed, 07 Jun 2023 17:54:39 GMT"]
+               ["Etag" "\"3147526947\""]
+               ["Expires" "Wed, 14 Jun 2023 17:54:39 GMT"]
                ["Last-Modified" "Thu, 17 Oct 2019 07:18:26 GMT"]
-               ["Server" "ECS (phd/FD6F)"]
+               ["Server" "ECS (nyb/1D10)"]
                ["Vary" "Accept-Encoding"]
                ["X-Cache" "HIT"]
                ["Content-Length" "1256"]]]
              (butlast (sut/request "http://example.org/index.html"))))
       (is (re-find #"(?m)^ *Example Domain *$"
-                   (with-out-str (sut/load-page "http://example.org/index.html")))))))
+                   (with-out-str (sut/load-page "http://example.org/index.html")))))
+    ;; source: https://stackoverflow.com/a/10176685
+    ;; openssl req -x509 -newkey rsa:4096 -keyout example.org.pem -out example.org.pem -sha256 -days 3650 -nodes -subj "/CN=example.org"
+    ;; source: https://docs.oracle.com/cd/E19509-01/820-3503/ggfhb/index.html
+    ;; openssl pkcs12 -export -in example.org.pem -out example.org.p12 -name example.org -noiter -nomaciter
+    (try-with-resources [server-socket (-> (sut/ssl-context {:keystore {:type "PKCS12" :filename "example.org.p12" :passphrase "foobarbaz"}})
+                                           (.getServerSocketFactory)
+                                           (.createServerSocket 22222))]
+      (future
+        (loop []
+          (when-let [socket (.accept server-socket)]
+            (try-with-resources [i (sut/is socket)
+                                 o (sut/os socket)]
+              (read-request (io/reader i)) ;; silently discard request
+              (io/copy (-> "fixtures/https://example.org/index.html" io/resource io/input-stream) o))
+            (recur))))
+      (with-redefs [sut/ssl-socket-factory #(.getSocketFactory (sut/ssl-context {:truststore {:type "PKCS12" :filename "example.org.p12" :passphrase "foobarbaz"}}))] ;; TODO: HACK: should not use the keystore (including private key) as truststore
+        (is (= [["HTTP/1.1" "200" "OK"]
+                [["Accept-Ranges" "bytes"]
+                 ["Age" "319303"]
+                 ["Cache-Control" "max-age=604800"]
+                 ["Content-Type" "text/html; charset=UTF-8"]
+                 ["Date" "Wed, 07 Jun 2023 17:54:47 GMT"]
+                 ["Etag" "\"3147526947+gzip\""]
+                 ["Expires" "Wed, 14 Jun 2023 17:54:47 GMT"]
+                 ["Last-Modified" "Thu, 17 Oct 2019 07:18:26 GMT"]
+                 ["Server" "ECS (nyb/1D10)"]
+                 ["Vary" "Accept-Encoding"]
+                 ["X-Cache" "HIT"]
+                 ["Content-Length" "1256"]]]
+               (butlast (sut/request "https://example.org/index.html"))))
+        (is (re-find #"(?m)^ *Example Domain *$"
+                     (with-out-str (sut/load-page "https://example.org/index.html"))))))))
 
 (comment
   (with-redefs [sut/resolve-host-port (fn [url] (merge url {:scheme "http" :host "localhost" :port 22222}))]
