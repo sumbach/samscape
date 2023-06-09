@@ -6,8 +6,7 @@
            (java.lang StringBuilder)
            (java.net Socket InetSocketAddress)
            (javafx.scene.canvas Canvas)
-           (javafx.scene.paint Color)
-           (javax.net.ssl SSLSocketFactory)))
+           (javafx.scene.paint Color)))
 
 (defn parse [s]
   (let [[scheme rst] (string/split s #"://" 2)
