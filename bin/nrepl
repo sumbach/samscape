@@ -2,7 +2,7 @@
 : ${NREPL_PORT:=53535}
 
 if [ -e .nrepl-port ] ; then
-  echo "Stale `.nrepl-port` file found; `rm .nrepl-port` and try again."
+  echo 'Stale `.nrepl-port` file found; `rm .nrepl-port` and try again.'
   exit 1
 fi
 
